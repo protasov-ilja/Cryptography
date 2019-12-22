@@ -2,7 +2,7 @@
   "profiles": {
     "Caesar": {
       "commandName": "Project",
-      "commandLineArgs": "hack --in \"encode1.txt\""
+      "commandLineArgs": "hack --in \"encode4.txt\""
     }
   }
 }

@@ -5,172 +5,172 @@ using System.Text;
 
 namespace Caesar
 {
-	public class CaesarEncoder
-	{
-		private static string _alphabet = "\n\r\"\',.:;!-()0123456789abcdefghijklmnopqrstuvwxyzабвгдежзийклмнопрстуфхцчшщъыьэюя";
+    public class CaesarEncoder
+    {
+        private readonly static string _alphabet = "\n\r\"\',.:;!-()0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ";
 
-		public static readonly Encoding Encoding = Encoding.UTF8;
+        public static readonly Encoding Encoding = Encoding.UTF8;
 
-		public static int MaxKeyLength = 20;
+        public static int MaxKeyLength = 20;
 
-		#region Encoding
-		public static byte[] Encode( string message, string key )
-		{
-			string filtered = CheckInput( message );
+        #region Encoding
+        public static byte[] Encode( string inputBytes, string key )
+        {
+            var filtered = CheckInput( inputBytes );
 
-			byte[] filteredBytes = Encoding.GetBytes( filtered );
-			byte[] keyBytes = Encoding.GetBytes( key );
+            byte[] filteredBytes = Encoding.GetBytes( filtered );
+            byte[] keyBytes = Encoding.GetBytes( key );
 
-			return Encode( filteredBytes, keyBytes );
-		}
+            return EncodeData( filteredBytes, keyBytes );
+        }
 
-		private static byte[] Encode( byte[] message, byte[] key )
-		{
-			return message.Zip( GetBytePerCircle( key ), ( byte originalByte, byte keyByte ) =>
-			{
-				return ( byte )( ( originalByte + keyByte ) % 256 );
-			}).ToArray();
-		}
-		#endregion
+        private static byte[] EncodeData( byte[] inputBytes, byte[] key )
+        {
+            return inputBytes.Zip( GetBytePerCircle( key ), ( byte originalByte, byte keyByte ) =>
+            {
+                return ( byte )( ( originalByte + keyByte ) % 256 );
+            } ).ToArray();
+        }
+        #endregion
 
-		#region Decoding
-		private static byte[] Decode( byte[] message, byte[] key )
-		{
-			return message.Zip( GetBytePerCircle( key ), ( byte originalByte, byte keyByte ) =>
-			{
-				int difference = originalByte - keyByte;
-				if ( difference < 0 )
-				{
-					difference = 256 + difference;
-				}
+        #region Decoding
+        private static byte[] DecodeData( byte[] inputBytes, byte[] key )
+        {
+            return inputBytes.Zip( GetBytePerCircle( key ), ( byte originalByte, byte keyByte ) =>
+            {
+                int difference = originalByte - keyByte;
+                if ( difference < 0 )
+                {
+                    difference = 256 + difference;
+                }
 
-				return ( byte ) difference;
-			}).ToArray();
-		}
+                return ( byte )difference;
+            } ).ToArray();
+        }
 
-		public static byte[] Decode(byte[] message, string key)
-		{
-			byte[] keyBytes = Encoding.GetBytes(key);
-			return Decode(message, keyBytes);
-		}
-		#endregion
+        public static byte[] Decode( byte[] inputBytes, string key )
+        {
+            byte[] keyBytes = Encoding.GetBytes( key );
 
-		#region Hacking
-		public static bool TryHackKey(byte[] message, out List<byte[]> keys)
-		{
-			for (int keyLength = 1; keyLength <= MaxKeyLength; ++keyLength)
-			{
-				var keyLetters = new List<HashSet<byte>>();
-				bool failed = false;
+            return DecodeData( inputBytes, keyBytes );
+        }
+        #endregion
 
-				for (int keyIndex = 0; keyIndex < keyLength; ++keyIndex)
-				{
-					var key = new HashSet<byte>();
-					for (int i = keyIndex; i < message.Length; i += keyLength)
-					{
-						if (i == keyIndex)
-						{
-							key.UnionWith(GetPossibleKeys(message[i]));
-						}
-						else
-						{
-							key.IntersectWith(GetPossibleKeys(message[i]));
-						}
-					}
+        #region Hacking
+        public static List<byte[]> GetKeys( byte[] encryptedBytes )
+        {
+            var keys = new List<byte[]>();
+            for ( int keyLength = 1; keyLength <= MaxKeyLength; ++keyLength ) // found all keys
+            {
+                var keySet = new List<HashSet<byte>>();
+                var isKeysNotFound = false;
 
-					if (key.Count == 0)
-					{
-						failed = true;
-						break;
-					}
+                for ( int keyIndex = 0; keyIndex < keyLength; ++keyIndex ) // found key
+                {
+                    var shiftSet = new HashSet<byte>();
+                    for ( int i = keyIndex; i < encryptedBytes.Length; i += keyLength )
+                    {
+                        if ( i == keyIndex )
+                        {
+                            shiftSet.UnionWith( GetPossibleShifts( encryptedBytes[ i ] ) );
+                        }
+                        else
+                        {
+                            shiftSet.IntersectWith( GetPossibleShifts( encryptedBytes[ i ] ) );
+                        }
+                    }
 
-					keyLetters.Add(key);
-				}
+                    if ( shiftSet.Count == 0 )
+                    {
+                        isKeysNotFound = true;
+                        break;
+                    }
 
-				if (!failed)
-				{
-					keys = new List<byte[]>();
-					var stack = new Stack<ByteData>();
-					stack.Push(new ByteData { Bytes = new byte[keyLength], Length = 0 });
+                    keySet.Add( shiftSet );
+                }
 
-					while (stack.Count != 0)
-					{
-						ByteData data = stack.Pop();
-						if (data.Length == keyLength)
-						{
-							keys.Add(data.Bytes);
-						}
-						else
-						{
-							foreach (byte keyLetter in keyLetters[data.Length])
-							{
-								byte[] key = new byte[keyLength];
-								Array.Copy(data.Bytes, key, keyLength);
-								key[data.Length] = keyLetter;
-								stack.Push(new ByteData { Bytes = key, Length = data.Length + 1 });
-							}
-						}
-					}
+                if ( !isKeysNotFound )
+                {
+                    keys = new List<byte[]>();
+                    var stack = new Stack<ByteData>();
+                    stack.Push( new ByteData { Bytes = new byte[ keyLength ], Length = 0 } );
 
-					return true;
-				}
-			}
+                    while ( stack.Count != 0 )
+                    {
+                        ByteData data = stack.Pop();
+                        if ( data.Length == keyLength )
+                        {
+                            keys.Add( data.Bytes );
+                        }
+                        else
+                        {
+                            foreach ( byte possibleShift in keySet[ data.Length ] ) // collect all possible keys
+                            {
+                                byte[] key = new byte[ keyLength ]; // create key
+                                Array.Copy( data.Bytes, key, keyLength ); // copy with current key
+                                key[ data.Length ] = possibleShift;
+                                stack.Push( new ByteData { Bytes = key, Length = data.Length + 1 } ); 
+                            }
+                        }
+                    }
 
-			keys = null;
-			return false;
-		}
+                    return keys;
+                }
+            }
 
-		private static HashSet<byte> GetPossibleKeys(byte encrypted)
-		{
-			var set = new HashSet<byte>();
-			foreach (byte letter in _alphabet)
-			{
-				int key = encrypted - letter;
-				if (key < 0)
-				{
-					key = 256 + key;
-				}
-				set.Add((byte)key);
-			}
+            return new List<byte[]>();
+        }
 
-			return set;
-		}
+        private static HashSet<byte> GetPossibleShifts( byte encrypted )
+        {
+            var set = new HashSet<byte>();
+            foreach ( byte letter in _alphabet )
+            {
+                int key = encrypted - letter;
+                if ( key < 0 )
+                {
+                    key = 256 + key;
+                }
+                set.Add( ( byte )key );
+            }
 
-		private struct ByteData
-		{
-			public byte[] Bytes;
-			public int Length;
-		}
-		#endregion
+            return set;
+        }
 
-		private static string CheckInput( string input )
-		{
-			var builder = new StringBuilder();
-			foreach ( char ch in input )
-			{
-				char lower = char.ToLowerInvariant( ch );
-				if ( _alphabet.IndexOf( lower ) != -1 )
-				{
-					builder.Append( lower );
-				}
-				else
-				{
-					throw new Exception( $"Simbol not in alphabet { ch }" );
-				}
-			}
+        private struct ByteData
+        {
+            public byte[] Bytes;
+            public int Length;
+        }
+        #endregion
 
-			return builder.ToString();
-		}
+        private static string CheckInput( string input )
+        {
+            var builder = new StringBuilder();
+            foreach ( char ch in input )
+            {
+                if ( _alphabet.IndexOf( ch ) != -1 )
+                {
+                    builder.Append( ch );
+                }
+                else
+                {
+                    throw new Exception( $"Simbol not in alphabet { ch }" );
+                }
+            }
 
-		private static IEnumerable<byte> GetBytePerCircle( byte[] bytes )
-		{
-			while ( true )
-			{
-				foreach ( byte b in bytes )
-				{
-					yield return b;
-				}
-			}
-		}
-	}
+            return builder.ToString();
+        }
+
+        private static IEnumerable<byte> GetBytePerCircle( byte[] bytes )
+        {
+            while ( true )
+            {
+                foreach ( byte b in bytes )
+                {
+                    yield return b;
+                }
+            }
+        }
+    }
 }
