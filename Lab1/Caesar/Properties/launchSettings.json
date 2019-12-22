@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Caesar": {
+      "commandName": "Project",
+      "commandLineArgs": "hack --in \"encode1.txt\""
+    }
+  }
+}
