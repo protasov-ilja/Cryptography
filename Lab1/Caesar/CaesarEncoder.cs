@@ -59,11 +59,11 @@ namespace Caesar
         #region Hacking
         public static List<byte[]> GetKeys( byte[] encryptedBytes )
         {
-            var keys = new List<byte[]>();
+            var result = new List<byte[]>();
             for ( int keyLength = 1; keyLength <= MaxKeyLength; ++keyLength ) // found all keys
             {
                 var keySet = new List<HashSet<byte>>();
-                var isKeysNotFound = false;
+                var isKeysFound = true;
 
                 for ( int keyIndex = 0; keyIndex < keyLength; ++keyIndex ) // found key
                 {
@@ -82,55 +82,57 @@ namespace Caesar
 
                     if ( shiftSet.Count == 0 )
                     {
-                        isKeysNotFound = true;
+                        isKeysFound = false;
                         break;
                     }
 
                     keySet.Add( shiftSet );
                 }
 
-                if ( !isKeysNotFound )
-                {
-                    keys = new List<byte[]>();
-                    var stack = new Stack<ByteData>();
-                    stack.Push( new ByteData { Bytes = new byte[ keyLength ], Length = 0 } );
+                if ( !isKeysFound )
+                    continue;
 
-                    while ( stack.Count != 0 )
+                var keys = new List<byte[]>();
+                var stack = new Stack<ByteData>();
+                stack.Push( new ByteData { Bytes = new byte[ keyLength ], Length = 0 } );
+
+                while ( stack.Count != 0 )
+                {
+                    ByteData data = stack.Pop();
+                    if ( data.Length == keyLength )
                     {
-                        ByteData data = stack.Pop();
-                        if ( data.Length == keyLength )
+                        keys.Add( data.Bytes );
+                    }
+                    else
+                    {
+                        foreach ( byte possibleShift in keySet[ data.Length ] ) // collect all possible keys
                         {
-                            keys.Add( data.Bytes );
-                        }
-                        else
-                        {
-                            foreach ( byte possibleShift in keySet[ data.Length ] ) // collect all possible keys
-                            {
-                                byte[] key = new byte[ keyLength ]; // create key
-                                Array.Copy( data.Bytes, key, keyLength ); // copy with current key
-                                key[ data.Length ] = possibleShift;
-                                stack.Push( new ByteData { Bytes = key, Length = data.Length + 1 } ); 
-                            }
+                            byte[] key = new byte[ keyLength ]; // create key
+                            Array.Copy( data.Bytes, key, keyLength ); // copy with current key
+                            key[ data.Length ] = possibleShift;
+                            stack.Push( new ByteData { Bytes = key, Length = data.Length + 1 } ); 
                         }
                     }
-
-                    return keys;
                 }
+
+                result.AddRange( keys );
             }
 
-            return new List<byte[]>();
+            return result;
         }
 
         private static HashSet<byte> GetPossibleShifts( byte encrypted )
         {
             var set = new HashSet<byte>();
-            foreach ( byte letter in _alphabet )
+            var alphabetBytes = Encoding.GetBytes( _alphabet );
+            foreach ( char letter in alphabetBytes )
             {
                 int key = encrypted - letter;
                 if ( key < 0 )
                 {
                     key = 256 + key;
                 }
+
                 set.Add( ( byte )key );
             }
 

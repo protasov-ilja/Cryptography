@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using CommandLine;
 
 namespace Caesar
@@ -51,15 +51,31 @@ namespace Caesar
             Console.WriteLine( "Hacking..." );
             byte[] input = File.ReadAllBytes( options.InputFile );
             var keys = CaesarEncoder.GetKeys( input );
-            if ( keys.Count != 0 )
+            if ( keys.Any() )
             {
-                Console.WriteLine( "Hacking: SUCCESS" );
                 Console.WriteLine( "Keys found:" );
-                foreach ( byte[] key in keys )
+                using ( var fileStream = new FileStream( options.OutputFile, FileMode.Create ) )
+                using ( var streamWriter = new StreamWriter( fileStream, CaesarEncoder.Encoding ) )
                 {
-                    Console.WriteLine( CaesarEncoder.Encoding.GetString( key ) );
+                    System.Collections.IList list = keys;
+                    for ( int i = 0; i < list.Count; i++ )
+                    {
+                        string key = ( string )list[ i ];
+                        streamWriter.WriteLine( key );
+                    }
                 }
             }
+
+
+            //    if ( keys.Count != 0 )
+            //{
+            //    Console.WriteLine( "Hacking: SUCCESS" );
+            //    Console.WriteLine( "Keys found:" );
+            //    foreach ( byte[] key in keys )
+            //    {
+            //        Console.WriteLine( CaesarEncoder.Encoding.GetString( key ) );
+            //    }
+            //}
             else
             {
                 Console.WriteLine( "No keys found!" );

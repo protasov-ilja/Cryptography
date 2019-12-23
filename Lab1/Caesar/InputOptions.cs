@@ -29,5 +29,7 @@ namespace Caesar
     {
         [Option( "in", Required = true, HelpText = "Encoded file path" )]
         public string InputFile { get; set; }
+        [Option( "out", Required = true, HelpText = "Keys file path" )]
+        public string OutputFile { get; set; }
     }
 }
